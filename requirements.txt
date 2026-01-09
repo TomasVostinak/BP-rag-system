@@ -3,3 +3,4 @@ charset-normalizer
 idna
 requests
 urllib3
+bs4
