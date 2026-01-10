@@ -10,29 +10,29 @@ import bs4
 
 URL_FILE = "data/project-urls.txt"
 
-def fetch_page(url, type):
+def fetch_page(url):
     response = requests.get(url, timeout=10)
     ct = response.headers.get("Content-Type", "").lower()
     print(f"Content-Type: {ct}")
     if response.ok:
-        if type == "pdf" or ct == "application/pdf":
+        if ct.startswith("text/html") or ct == "text/plain":
+            response.encoding = response.apparent_encoding
+            return response.text, "html"
+        elif ct == "application/pdf":
             with pdfplumber.open(io.BytesIO(response.content)) as pdf:
                 text = ""
                 for page in pdf.pages:
                     page_text = page.extract_text()
                     if page_text:
                         text += page_text + "\n"
-            return text
+            return text, "pdf"
         
-        elif type == "docx":
+        else:
+            # if anything else, docx
             pass
-
-        elif type == "html":
-            response.encoding = response.apparent_encoding
-            return response.text
     else:
         print(f"Error fetching {url}: {response.status_code}")
-        return None
+        return None, None
 
 def clean_html(html):
     soup = bs4.BeautifulSoup(html, "html.parser")
@@ -67,26 +67,15 @@ def ingest_urls():
     for i, url in enumerate(urls, start=1):
         print(f"Fetching URL {i}: {url}")
 
-        if url.endswith(".pdf"):
-            page = fetch_page(url, "pdf")
-            if page is None:
-                time.sleep(0.5)
-                continue
-            text = clean_text(page)
-
-        elif url.endswith(".docx"):
-            page = fetch_page(url, "docx")
-            if page is None:
-                time.sleep(0.5)
-                continue
-            text = clean_text(page)
-
-        else:
-            page = fetch_page(url, "html")
-            if page is None:
-                time.sleep(0.5)
-                continue
+        page, type = fetch_page(url)
+        if page is None:
+            time.sleep(0.5)
+            continue
+        
+        if type == "html":
             text = clean_html(page)
+        else:
+            text = clean_text(page)
 
         if text:
             print(f"Extracted {len(text)} characters from {url}")
