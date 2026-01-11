@@ -2,13 +2,15 @@
 ### Soubor pro crawler a čištění HTML stránek ###
 #################################################
 
-import requests
-import pdfplumber
 import io
 import time
+import requests
+import pdfplumber
+import docx
 import bs4
 
 URL_FILE = "data/project-urls.txt"
+OUTPUT_FILE = "data/ingested-text.txt"
 
 def fetch_page(url):
     response = requests.get(url, timeout=10)
@@ -18,6 +20,7 @@ def fetch_page(url):
         if ct.startswith("text/html") or ct == "text/plain":
             response.encoding = response.apparent_encoding
             return response.text, "html"
+        
         elif ct == "application/pdf":
             with pdfplumber.open(io.BytesIO(response.content)) as pdf:
                 text = ""
@@ -27,9 +30,10 @@ def fetch_page(url):
                         text += page_text + "\n"
             return text, "pdf"
         
-        else:
-            # if anything else, docx
-            pass
+        elif ct in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
+            doc = docx.Document(io.BytesIO(response.content))
+            text = "\n".join([para.text for para in doc.paragraphs])
+            return text, "docx"
     else:
         print(f"Error fetching {url}: {response.status_code}")
         return None, None
@@ -63,31 +67,33 @@ def clean_text(text, min_words=6):
 def ingest_urls():
     with open(URL_FILE, "r", encoding="utf-8") as file:
         urls = [line.strip() for line in file if line.strip()]
+        file.close()
 
-    for i, url in enumerate(urls, start=1):
-        print(f"Fetching URL {i}: {url}")
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
+        for i, url in enumerate(urls, start=1):
+            print(f"Fetching URL {i}: {url}")
 
-        page, type = fetch_page(url)
-        if page is None:
-            time.sleep(0.5)
-            continue
+            page, type = fetch_page(url)
+            if page is None:
+                time.sleep(0.5)
+                continue
         
-        if type == "html":
-            text = clean_html(page)
-        else:
-            text = clean_text(page)
+            if type == "html":
+                text = clean_html(page)
+            else:
+                text = clean_text(page)
 
-        if text:
-            print(f"Extracted {len(text)} characters from {url}")
-        else:
-            print(f"Failed to extract text from {url}")
+            if text:
+                print(f"Extracted {len(text)} characters from {url}")
+            else:
+                print(f"Failed to extract text from {url}")
 
-        # add to output file here
-
-        time.sleep(0.5)
+            out_file.write(text + "\n")
+            time.sleep(0.5)
+        out_file.close()
 
 if __name__ == "__main__":
     ingest_urls()
-    #page = fetch_page("https://www.mestojablonec.cz/data/files/14/14b/5d51da9b3517c473ca248a494ebbd418368/07-zadost-o-souhlas-podle-17-vodniho-zakona.docx", "html")
+    #page, type = fetch_page("https://www.mestojablonec.cz/data/files/0f/06a/0c97ba1185799a43d45306f839eed8abdac/zadost-boz-010325.docx")
     #text = clean_text(page)
     #print(text)
