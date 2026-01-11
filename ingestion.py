@@ -5,23 +5,24 @@
 import io
 import time
 import requests
+import json
 import pdfplumber
 import docx
 import bs4
 
 URL_FILE = "data/project-urls.txt"
-OUTPUT_FILE = "data/ingested-text.txt"
+OUTPUT_FILE = "data/ingested-text.jsonl"
 
 def fetch_page(url):
     response = requests.get(url, timeout=10)
     ct = response.headers.get("Content-Type", "").lower()
     print(f"Content-Type: {ct}")
     if response.ok:
-        if ct.startswith("text/html") or ct == "text/plain":
+        if "html" in ct or "text/plain" in ct:
             response.encoding = response.apparent_encoding
             return response.text, "html"
         
-        elif ct == "application/pdf":
+        elif "pdf" in ct:
             with pdfplumber.open(io.BytesIO(response.content)) as pdf:
                 text = ""
                 for page in pdf.pages:
@@ -40,7 +41,7 @@ def fetch_page(url):
 
 def clean_html(html):
     soup = bs4.BeautifulSoup(html, "html.parser")
-    main = soup.body
+    main = soup.body or soup.main or soup
 
     for tag in main(["script", "style", "header", "footer", "nav", "aside"]):
         tag.decompose()
@@ -48,7 +49,7 @@ def clean_html(html):
     text = main.get_text(separator="\n", strip=True)
     return clean_text(text)
 
-def clean_text(text, min_words=6):
+def clean_text(text, min_words=5):
     if not text:
         return ""
 
@@ -58,7 +59,7 @@ def clean_text(text, min_words=6):
     lines = []
     for line in text.splitlines():
         line = line.strip()
-        if not line or len(line.split()) <= min_words:
+        if not line or len(line.split()) < min_words:
             continue
         lines.append(line)
         
@@ -67,7 +68,6 @@ def clean_text(text, min_words=6):
 def ingest_urls():
     with open(URL_FILE, "r", encoding="utf-8") as file:
         urls = [line.strip() for line in file if line.strip()]
-        file.close()
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as out_file:
         for i, url in enumerate(urls, start=1):
@@ -85,15 +85,16 @@ def ingest_urls():
 
             if text:
                 print(f"Extracted {len(text)} characters from {url}")
+                record = {
+                    "id": i,
+                    "url": url,
+                    "text": text
+                }
+                out_file.write(json.dumps(record, ensure_ascii=False) + "\n")
             else:
                 print(f"Failed to extract text from {url}")
-
-            out_file.write(text + "\n")
+            
             time.sleep(0.5)
-        out_file.close()
 
 if __name__ == "__main__":
     ingest_urls()
-    #page, type = fetch_page("https://www.mestojablonec.cz/data/files/0f/06a/0c97ba1185799a43d45306f839eed8abdac/zadost-boz-010325.docx")
-    #text = clean_text(page)
-    #print(text)
