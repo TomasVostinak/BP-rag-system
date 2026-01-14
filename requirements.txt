@@ -6,3 +6,7 @@ urllib3
 bs4
 pdfplumber
 python-docx
+google-genai
+transformers
+torch
+torchvision

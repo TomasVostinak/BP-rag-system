@@ -63,7 +63,7 @@ def clean_text(text, min_words=5):
             continue
         lines.append(line)
         
-    return "\n".join(lines)
+    return " ".join(lines)
 
 def ingest_urls():
     with open(URL_FILE, "r", encoding="utf-8") as file:
