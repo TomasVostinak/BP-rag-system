@@ -13,6 +13,15 @@ import bs4
 URL_FILE = "data/project-urls.txt"
 OUTPUT_FILE = "data/ingested-text.jsonl"
 
+UNWANTED_PHRASES = [
+    "soubory cookies",
+    "Souhlasím s použitím",
+    "analytických cookies",
+    "statistických cookies",
+    "měřit návštěvnost",
+    "měřit výkon webu"
+]
+
 def fetch_page(url):
     response = requests.get(url, timeout=10)
     ct = response.headers.get("Content-Type", "").lower()
@@ -60,6 +69,8 @@ def clean_text(text, min_words=5):
     for line in text.splitlines():
         line = line.strip()
         if not line or len(line.split()) < min_words:
+            continue
+        if any(phrase in line for phrase in UNWANTED_PHRASES):
             continue
         lines.append(line)
         
