@@ -22,31 +22,48 @@ UNWANTED_PHRASES = [
     "měřit výkon webu"
 ]
 
-def fetch_page(url):
-    response = requests.get(url, timeout=10)
-    ct = response.headers.get("Content-Type", "").lower()
-    print(f"Content-Type: {ct}")
-    if response.ok:
-        if "html" in ct or "text/plain" in ct:
-            response.encoding = response.apparent_encoding
-            return response.text, "html"
+def fetch_page(url, retries=3, timeout=10):
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(url, timeout=timeout)
+            ct = response.headers.get("Content-Type", "").lower()
+            print(f"Content-Type: {ct}")
+            if not response.ok:
+                print(f"Error fetching {url}: {response.status_code}")
+                return None, None
+            
+            if "html" in ct or "text/plain" in ct:
+                response.encoding = response.apparent_encoding
+                return response.text, "html"
+            elif "pdf" in ct:
+                with pdfplumber.open(io.BytesIO(response.content)) as pdf:
+                    text = ""
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+                return text, "pdf"
+            elif ct in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
+                doc = docx.Document(io.BytesIO(response.content))
+                text = "\n".join([para.text for para in doc.paragraphs])
+                return text, "docx"
+            else:
+                print(f"Unsupported Content-Type for {url}: {ct}")
+                return None, None
+        except requests.exceptions.Timeout:
+            print(f"Timeout fetching {url}")
+        except requests.exceptions.ReadTimeout:
+            print(f"Read timeout fetching {url}")
+        except requests.exceptions.ConnectionError:
+            print(f"Connection error fetching {url}")
         
-        elif "pdf" in ct:
-            with pdfplumber.open(io.BytesIO(response.content)) as pdf:
-                text = ""
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-            return text, "pdf"
+        if attempt < retries:
+            print(f"Retrying ({attempt}/{retries})...")
+            time.sleep(2)
         
-        elif ct in ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"]:
-            doc = docx.Document(io.BytesIO(response.content))
-            text = "\n".join([para.text for para in doc.paragraphs])
-            return text, "docx"
-    else:
-        print(f"Error fetching {url}: {response.status_code}")
-        return None, None
+    print(f"Failed to fetch {url}")
+    return None, None
+            
 
 def clean_html(html):
     soup = bs4.BeautifulSoup(html, "html.parser")
