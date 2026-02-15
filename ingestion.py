@@ -12,7 +12,7 @@ import bs4
 import re
 
 URL_FILE = "data/project-urls.txt"
-OUTPUT_FILE = "data/ingested-text2.jsonl"
+OUTPUT_FILE = "data/ingested-text.jsonl"
 
 UNWANTED_PHRASES = ["soubory cookies", "Souhlasím s použitím", "analytických cookies", "statistických cookies", "měřit návštěvnost", "měřit výkon webu"]
 UNWANTED_SELECTORS = ["a.fusion-one-page-text-link", "a.odkaz_domu", "a.scroll-to-top-btn", "a.skip-link", "aside#sidebar", "aside.leve_menu", "div#alertbox", "div#container-left-side", "div#cookies_info", "div#cookiescript_injected_wrapper", "div#copy", "div#navbar", "div#skip-link", "div#sliders-container", "div.avada-footer-scripts", "div.cesta_ke_clanku", "div.ch2-region-g0", "div.FixedHeader", "div.fusion-footer", "div.fusion-sliding-bar-wrapper", "div.gc-Modal", "div.gc-Modal-container", "div.HeaderBar", "div.info_podclankem", "div.LayoutWithLeftSidebar-sidebar", "div.LayoutWithRightSidebar-sidebar", "div.nahled_tisk", "div.navbar", "div.Paginator", "div.PopupNav", "div.Search", "div.visually-hidden", "header", "nav.Breadcrumbs", "section.to-top-container"]

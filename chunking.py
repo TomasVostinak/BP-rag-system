@@ -4,71 +4,59 @@
 
 import json
 from transformers import AutoTokenizer
-import nltk
-nltk.download("punkt_tab")
 
 TEXT_FILE = "data/ingested-text.jsonl"
 CHUNK_FILE = "data/chunked-text.jsonl"
 
-CHUNK_SIZE = 300
-OVERLAP = 50
-MIN_CHUNK_SIZE = 50
+MAX_CHARS = 900
+OVERLAP = 150
+MIN_CHARS = 200
 
 tokenization_model = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 tokenizer = AutoTokenizer.from_pretrained(tokenization_model)
 
-def split_sentences(text):
-    return nltk.sent_tokenize(text, language="czech")
+def calculate_chars_per_token():
+    total_chars = 0
+    total_tokens = 0
 
-def count_tokens(text):
-    return len(tokenizer.encode(text, add_special_tokens=False))
+    with open(TEXT_FILE, "r", encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            record = json.loads(line)
+            text = record["text"]
 
-def take_last_tokens(text, max_tokens):
-    tokens = tokenizer.encode(text, add_special_tokens=False)
-    if len(tokens) <= max_tokens:
-        return text
-    trimmed_tokens = tokens[-max_tokens:]
-    return tokenizer.decode(trimmed_tokens)
+            tokens = tokenizer.encode(text, add_special_tokens=False)
 
-def chunk_text(sentences, chunk_size=CHUNK_SIZE, overlap=OVERLAP, min_chunk_size=MIN_CHUNK_SIZE):
+            total_chars += len(text)
+            total_tokens += len(tokens)
+
+    print("Chars per token:", total_chars / total_tokens)
+
+def chunk_by_chars(text, min_chars=MIN_CHARS, max_chars=MAX_CHARS, overlap=OVERLAP):
     chunks = []
-    current_text = ""
-    current_tokens = 0
+    start = 0
+    text_length = len(text)
 
-    for sentence in sentences:
-        sentence_tokens = count_tokens(sentence)
+    while start < text_length:
+        end = start + max_chars
+        chunk_text = text[start:end].strip()
 
-        if sentence_tokens > chunk_size:
-            continue
+        if len(chunk_text) >= min_chars:
+            token_count = len(
+                tokenizer.encode(chunk_text, add_special_tokens=False)
+            )
 
-        if current_tokens + sentence_tokens > chunk_size:
-            if current_tokens >= min_chunk_size:
-                chunks.append({
-                    "text": current_text.strip(),
-                    "tokens": current_tokens
-                })
+            chunks.append({
+                "text": chunk_text,
+                "chars": len(chunk_text),
+                "tokens": token_count
+            })
 
-            overlap_text = take_last_tokens(current_text, overlap)
-
-            current_text = overlap_text + " " + sentence
-            current_tokens = count_tokens(current_text)
-
-        else:
-            if current_text:
-                current_text += " " + sentence
-            else:
-                current_text = sentence
-            current_tokens += sentence_tokens
-
-    if current_tokens >= min_chunk_size:
-        chunks.append({
-            "text": current_text.strip(),
-            "tokens": current_tokens
-        })
+        start = end - overlap
 
     return chunks
 
 def process_text():
+    global_chunk_id = 0
     with open(TEXT_FILE, "r", encoding="utf-8") as textfile:
         with open(CHUNK_FILE, "w", encoding="utf-8") as chunkfile:
             for line in textfile:
@@ -77,14 +65,16 @@ def process_text():
                 url = record["url"]
                 text = record["text"]
 
-                sentences = split_sentences(text)
-                chunks = chunk_text(sentences)
+                chunks = chunk_by_chars(text)
 
-                for i, chunk in enumerate(chunks):
+                for chunk in chunks:
+                    global_chunk_id += 1
+
                     chunk_record = {
                         "doc_id": id,
-                        "chunk_id": i + 1,
+                        "chunk_id": global_chunk_id,
                         "url": url,
+                        "chars": chunk["chars"],
                         "tokens": chunk["tokens"],
                         "text": chunk["text"]
                     }
