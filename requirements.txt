@@ -10,3 +10,4 @@ google-genai
 transformers
 torch
 torchvision
+sentence-transformers
