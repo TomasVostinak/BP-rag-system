@@ -37,7 +37,7 @@ def deduplicate_chunks(chunks, threshold=0.9):
             continue
 
         unique_indices.append(i)
-        D, I = index.search(embeddings[i:i+1], 50)
+        D, I = index.search(embeddings[i:i+1], len(embeddings))
 
         for j, score in zip(I[0], D[0]):
             if j != i and score > threshold:
