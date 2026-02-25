@@ -5,8 +5,12 @@
 import json
 from sentence_transformers import SentenceTransformer
 import faiss
+import google.genai as genai
+
+client = genai.Client()
 
 CHUNK_FILE = "data/chunked-text.jsonl"
+OUTPUT_FILE = "data/qa-dataset.jsonl"
 
 model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
@@ -64,6 +68,44 @@ def is_informative(chunk):
 
     return True
 
+def generate_question(client, text):
+    prompt = f"""
+            Na základě následujícího textu vytvoř jednu konkrétní faktickou otázku,
+            na kterou lze odpovědět pouze z tohoto textu.
+
+            Text:
+            {text}
+
+            Odpověz pouze otázkou.
+            """
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+
+    return response.text.strip()
+
+def build_qa_dataset(chunks, client, OUTPUT_FILE, limit=1000):
+    count = 0
+
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        for chunk in chunks:
+            if count >= limit:
+                break
+
+            question = generate_question(client, chunk["text"])
+
+            record = {
+                "chunk_id": chunk["chunk_id"],
+                "source_url": chunk["url"],
+                "question": question,
+                "answer": chunk["text"]
+            }
+
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            count += 1
+
 if __name__ == "__main__":
     chunks = load_chunks()
     print(f"Loaded {len(chunks)} chunks.")
@@ -73,3 +115,6 @@ if __name__ == "__main__":
 
     informative_chunks = [chunk for chunk in unique_chunks if is_informative(chunk)]
     print(f"After filtering: {len(informative_chunks)} informative chunks.")
+
+    build_qa_dataset(informative_chunks, client, OUTPUT_FILE)
+    print(f"QA dataset saved to {OUTPUT_FILE}.")
