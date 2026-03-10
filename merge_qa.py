@@ -1,3 +1,7 @@
+##########################################
+### Soubor pro spojení otázek s chunky ###
+##########################################
+
 import json
 
 QUESTIONS_FILE = "data/otazky.jsonl"
