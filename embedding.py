@@ -4,8 +4,9 @@
 
 import json
 import faiss
+import numpy as np
 from sentence_transformers import SentenceTransformer
-import tqdm
+from tqdm import tqdm
 
 CHUNK_FILE = "data/final-chunks.jsonl"
 QA_DATASET = "data/qa-dataset.jsonl"
@@ -54,5 +55,66 @@ def create_index(model, texts):
 
     return index
 
+def compute_ndcg(rank):
+    if rank is None:
+        return 0
+
+    return 1 / np.log2(rank + 1)
+
 def evaluate():
-    pass
+    print("Using model " + embedding_model)
+
+    texts, chunk_ids = load_chunks()
+    questions, relevant_ids = load_dataset()
+
+    print("Creating FAISS index...")
+
+    index = create_index(model, texts)
+    chunk_ids_to_index = {cid: i for i, cid in enumerate(chunk_ids)}
+    max_k = max(TOP_K_VALUES)
+
+    recall = {k: 0 for k in TOP_K_VALUES}
+    mrr = 0
+    ndcg = 0
+
+    total = len(questions)
+
+    print("Running evaluation...")
+
+    for relevant_id, question in tqdm(zip(relevant_ids, questions), total=total):
+        q_emb = model.encode(question, convert_to_numpy=True)
+        if q_emb.ndim == 1:
+            q_emb = q_emb.reshape(1, -1)
+        faiss.normalize_L2(q_emb)
+
+        scores, indices = index.search(q_emb, max_k)
+        retrieved = indices[0]
+
+        if relevant_id not in chunk_ids_to_index:
+            continue
+
+        true_index = chunk_ids_to_index[relevant_id]
+        rank = None
+
+        for i, idx in enumerate(retrieved):
+            if idx == true_index:
+                rank = i + 1
+                break
+
+        if rank is not None:
+            for k in TOP_K_VALUES:
+                if rank <= k:
+                    recall[k] += 1
+            
+            mrr += 1 / rank
+            ndcg += compute_ndcg(rank)
+    
+    print("Evaluation complete")
+    for k in TOP_K_VALUES:
+        print(f"Recall@{k}: {recall[k] / total:.4f}")
+    
+    print(f"\nMRR: {mrr / total:.4f}")
+    print(f"nDCG@{max_k}: {ndcg / total:.4f}")
+
+if __name__ == "__main__":
+    evaluate()
