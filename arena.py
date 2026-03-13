@@ -11,8 +11,15 @@ from embedding import evaluate_model
 RESULTS_FILE = "data/eval-results.jsonl"
 
 def save_results(model_name, results):
+    score = (
+        0.4 * results["recall"][10]
+        + 0.3 * results["ndcg"]
+        + 0.3 * results["mrr"]
+    )
+
     record = {
         "model": model_name,
+        "score": score,
         "recall@10": results["recall"][10],
         "recall@20": results["recall"][20],
         "recall@30": results["recall"][30],
@@ -68,7 +75,7 @@ if st.button("Spustit evaluaci"):
 
         st.success("Evaluace dokončena")
         st.rerun()
-        
+
     except Exception as e:
         st.error("Chyba při evaluaci.")
         st.exception(e)
@@ -78,10 +85,13 @@ st.subheader("Leaderboard")
 df = load_results()
 
 if not df.empty:
-    df = df.sort_values("recall@10", ascending=False)
+    df = df.sort_values("score", ascending=False).reset_index(drop=True)
+    df.insert(0, "placement", df.index + 1)
+
     st.dataframe(
         df,
-        use_container_width=True
+        width='stretch',
+        hide_index=True
     )
     st.download_button(
         "Stáhnout výsledky",

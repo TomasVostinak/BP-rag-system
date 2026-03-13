@@ -5,11 +5,13 @@
 import json
 import faiss
 import numpy as np
+import os
 from sentence_transformers import SentenceTransformer
-from tqdm import tqdm
 
 CHUNK_FILE = "data/final-chunks.jsonl"
 QA_DATASET = "data/qa-dataset.jsonl"
+INDEX_DIR = "data/index_cache"
+
 TOP_K_VALUES = [10, 20, 30]
 
 def load_chunks():
@@ -37,7 +39,18 @@ def load_dataset():
 
     return questions, relevant_ids
 
-def create_index(model, texts):
+def get_index(model, model_name, texts):
+    os.makedirs(INDEX_DIR, exist_ok=True)
+
+    index_path = os.path.join(
+        INDEX_DIR,
+        model_name.replace("/", "_") + ".faiss"
+    )
+
+    if os.path.exists(index_path):
+        print("Model retrieved from cache.")
+        return faiss.read_index(index_path)
+
     embeddings = model.encode(
         texts,
         batch_size=64,
@@ -49,6 +62,8 @@ def create_index(model, texts):
     dim = embeddings.shape[1]
     index = faiss.IndexFlatIP(dim)
     index.add(embeddings)
+
+    faiss.write_index(index, index_path)
 
     return index
 
@@ -66,7 +81,7 @@ def evaluate_model(model_name):
 
     print("Creating FAISS index...")
 
-    index = create_index(model, texts)
+    index = get_index(model, model_name, texts)
     chunk_ids_to_index = {cid: i for i, cid in enumerate(chunk_ids)}
     max_k = max(TOP_K_VALUES)
 
@@ -76,17 +91,24 @@ def evaluate_model(model_name):
 
     total = len(questions)
 
+    question_embeddings = model.encode(
+        questions,
+        batch_size=128,
+        convert_to_numpy=True,
+        show_progress_bar=False
+    )
+
+    faiss.normalize_L2(question_embeddings)
+
     print("Running evaluation...")
 
-    for relevant_id, question in zip(relevant_ids, questions):
-        q_emb = model.encode(question, convert_to_numpy=True)
-        if q_emb.ndim == 1:
-            q_emb = q_emb.reshape(1, -1)
-        
-        faiss.normalize_L2(q_emb)
+    for i, q_emb in enumerate(question_embeddings):
+        q_emb = q_emb.reshape(1, -1)
 
         scores, indices = index.search(q_emb, max_k)
         retrieved = indices[0]
+
+        relevant_id = relevant_ids[i]
 
         if relevant_id not in chunk_ids_to_index:
             continue
@@ -94,9 +116,9 @@ def evaluate_model(model_name):
         true_index = chunk_ids_to_index[relevant_id]
         rank = None
 
-        for i, idx in enumerate(retrieved):
+        for j, idx in enumerate(retrieved):
             if idx == true_index:
-                rank = i + 1
+                rank = j + 1
                 break
 
         if rank is not None:
@@ -108,6 +130,7 @@ def evaluate_model(model_name):
             ndcg += compute_ndcg(rank)
     
     print("Evaluation complete")
+
     results = {
         "recall": {k: recall[k] / total for k in TOP_K_VALUES},
         "mrr": mrr / total,
