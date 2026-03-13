@@ -12,3 +12,4 @@ torch
 torchvision
 sentence-transformers
 faiss
+streamlit

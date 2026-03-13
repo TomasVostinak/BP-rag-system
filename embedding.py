@@ -78,7 +78,7 @@ def evaluate_model(model_name):
 
     print("Running evaluation...")
 
-    for relevant_id, question in tqdm(zip(relevant_ids, questions), total=total):
+    for relevant_id, question in zip(relevant_ids, questions):
         q_emb = model.encode(question, convert_to_numpy=True)
         if q_emb.ndim == 1:
             q_emb = q_emb.reshape(1, -1)
