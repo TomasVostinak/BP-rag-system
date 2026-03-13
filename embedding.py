@@ -12,9 +12,6 @@ CHUNK_FILE = "data/final-chunks.jsonl"
 QA_DATASET = "data/qa-dataset.jsonl"
 TOP_K_VALUES = [10, 20, 30]
 
-embedding_model = "intfloat/multilingual-e5-base"
-model = SentenceTransformer(embedding_model)
-
 def load_chunks():
     texts = []
     chunk_ids = []
@@ -61,8 +58,8 @@ def compute_ndcg(rank):
 
     return 1 / np.log2(rank + 1)
 
-def evaluate():
-    print("Using model " + embedding_model)
+def evaluate_model(model_name):
+    model = SentenceTransformer(model_name)
 
     texts, chunk_ids = load_chunks()
     questions, relevant_ids = load_dataset()
@@ -85,6 +82,7 @@ def evaluate():
         q_emb = model.encode(question, convert_to_numpy=True)
         if q_emb.ndim == 1:
             q_emb = q_emb.reshape(1, -1)
+        
         faiss.normalize_L2(q_emb)
 
         scores, indices = index.search(q_emb, max_k)
@@ -110,11 +108,10 @@ def evaluate():
             ndcg += compute_ndcg(rank)
     
     print("Evaluation complete")
-    for k in TOP_K_VALUES:
-        print(f"Recall@{k}: {recall[k] / total:.4f}")
-    
-    print(f"\nMRR: {mrr / total:.4f}")
-    print(f"nDCG@{max_k}: {ndcg / total:.4f}")
+    results = {
+        "recall": {k: recall[k] / total for k in TOP_K_VALUES},
+        "mrr": mrr / total,
+        "ndcg": ndcg / total
+    }
 
-if __name__ == "__main__":
-    evaluate()
+    return results
