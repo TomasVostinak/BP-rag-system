@@ -138,3 +138,29 @@ def evaluate_model(model_name):
     }
 
     return results
+
+def retrieve_chunks(model_name, query, top_k=5):
+    model = SentenceTransformer(model_name)
+    texts, chunk_ids = load_chunks()
+    index = get_index(model, model_name, texts)
+
+    q_emb = model.encode(
+        ["query: " + query],
+        convert_to_numpy=True,
+        show_progress_bar=False
+    )
+
+    faiss.normalize_L2(q_emb)
+
+    scores, indices = index.search(q_emb, top_k)
+
+    results = []
+
+    for rank, idx in enumerate(indices[0]):
+        results.append({
+            "rank": rank + 1,
+            "chunk_id": chunk_ids[idx],
+            "text": texts[idx].replace("passage: ", "")
+        })
+
+    return results
