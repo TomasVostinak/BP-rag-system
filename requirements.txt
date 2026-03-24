@@ -11,5 +11,7 @@ transformers
 torch
 torchvision
 sentence-transformers
-faiss
+pandas
+numpy
+faiss-cpu
 streamlit
