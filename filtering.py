@@ -1,5 +1,5 @@
 ################################################
-### Soubor pro evaluaci chunků z chunking.py ###
+### Soubor pro filtraci chunků z chunking.py ###
 ################################################
 
 import json
