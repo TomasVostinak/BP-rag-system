@@ -4,7 +4,7 @@
 
 import json
 
-QUESTIONS_FILE = "data/otazky.jsonl"
+QUESTIONS_FILE = "data/filtered-otazky.jsonl"
 CHUNKS_FILE = "data/final-chunks.jsonl"
 OUTPUT_FILE = "data/qa-dataset.jsonl"
 

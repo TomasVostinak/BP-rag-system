@@ -9,8 +9,8 @@ import google.genai as genai
 
 client = genai.Client()
 
-CHUNK_FILE = "data/chunked-text.jsonl"
-OUTPUT_FILE = "data/final-chunks.jsonl"
+CHUNK_FILE = "data/without-links.jsonl"
+OUTPUT_FILE = "data/final-chunks-without-links.jsonl"
 
 model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
@@ -55,7 +55,6 @@ def is_informative(chunk):
     if len(text) < 300:
         return False
 
-    # příliš mnoho opakujících se slov
     words = text.split()
 
     if len(words) == 0:

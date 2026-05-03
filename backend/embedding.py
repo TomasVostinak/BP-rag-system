@@ -8,9 +8,12 @@ import numpy as np
 import os
 from sentence_transformers import SentenceTransformer
 
-CHUNK_FILE = "data/final-chunks.jsonl"
-QA_DATASET = "data/qa-dataset.jsonl"
-INDEX_DIR = "data/index_cache"
+EMBEDDING_BASE_DIR = os.path.dirname(__file__)
+DATA_ROOT = os.path.abspath(os.path.join(EMBEDDING_BASE_DIR, "..", "data"))
+
+CHUNK_FILE = os.path.join(DATA_ROOT, "final-chunks.jsonl")
+QA_DATASET = os.path.join(DATA_ROOT, "qa-dataset.jsonl")
+INDEX_DIR = os.path.join(DATA_ROOT, "index_cache")
 
 TOP_K_VALUES = [10, 20, 30]
 
@@ -67,14 +70,8 @@ def get_index(model, model_name, texts):
 
     return index
 
-def compute_ndcg(rank):
-    if rank is None:
-        return 0
-
-    return 1 / np.log2(rank + 1)
-
 def evaluate_model(model_name):
-    model = SentenceTransformer(model_name)
+    model = SentenceTransformer(model_name, trust_remote_code=True)
 
     texts, chunk_ids = load_chunks()
     questions, relevant_ids = load_dataset()
@@ -87,7 +84,6 @@ def evaluate_model(model_name):
 
     recall = {k: 0 for k in TOP_K_VALUES}
     mrr = 0
-    ndcg = 0
 
     total = len(questions)
 
@@ -127,20 +123,18 @@ def evaluate_model(model_name):
                     recall[k] += 1
             
             mrr += 1 / rank
-            ndcg += compute_ndcg(rank)
     
     print("Evaluation complete")
 
     results = {
         "recall": {k: recall[k] / total for k in TOP_K_VALUES},
-        "mrr": mrr / total,
-        "ndcg": ndcg / total
+        "mrr": mrr / total
     }
 
     return results
 
 def retrieve_chunks(model_name, query, top_k=5):
-    model = SentenceTransformer(model_name)
+    model = SentenceTransformer(model_name, trust_remote_code=True)
     texts, chunk_ids = load_chunks()
     index = get_index(model, model_name, texts)
 

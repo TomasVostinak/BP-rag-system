@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Evaluation Arena</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>RAG Evaluation Arena</h1>
+        <p>Porovnání embedding modelů na datasetu otázek z webů města Jablonec nad Nisou.</p>
+
+        <div class="section">
+            <h2>Evaluovat nový model</h2>
+            <input type="text" id="modelNameInput" placeholder="Zadejte název embedding modelu (z HuggingFace), např. intfloat/multilingual-e5-base">
+            <button onclick="runEval()">Spustit evaluaci</button>
+            <span id="evalStatus" class="status-message"></span>
+        </div>
+
+        <div class="section">
+            <h2>Leaderboard</h2>
+            <p>Zde jsou výsledky evaluovaných modelů, seřazené podle agregovaného skóre (0.6 * Recall@10 + 0.4 * MRR).</p>
+            <button onclick="loadLeaderboard()">Aktualizovat Leaderboard</button>
+            <span id="leaderboardStatus" class="status-message"></span>
+            <table id="leaderboardTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Model</th>
+                        <th>Skóre</th>
+                        <th>Recall@10</th>
+                        <th>Recall@20</th>
+                        <th>Recall@30</th>
+                        <th>MRR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- data se tady načtou -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Retrieval Arena</h2>
+            <p>Zadejte otázku a porovnejte výsledky různých embedding modelů. Chunky se žlutým pozadím se opakují ve více modelech.</p>
+            <input type="text" id="queryInput" placeholder="Otázka, např. Jaké jsou poplatky za psy?">
+            <label for="topKSlider">Kolik chunků zobrazit:</label>
+            <input type="range" id="topKSlider" min="1" max="20" value="10" oninput="document.getElementById('topKValue').innerText = this.value;">
+            <span id="topKValue">10</span>
+            <br>
+            <h3>Vyberte modely pro porovnání:</h3>
+            <div id="modelCheckboxes" class="model-checkbox-group">
+                <p class="warning">Žádné modely k dispozici. Spusťte evaluaci modelů nejprve.</p>
+            </div>
+            <button onclick="compareModels()">Porovnat modely</button>
+            <span id="compareStatus" class="status-message"></span>
+
+            <div id="retrievedChunksResults" style="margin-top: 20px;">
+                <!-- chunky se tady zobrazí -->
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Generovaná odpověď od LLM (Gemini 2.5 Flash)</h2>
+            <p>Vygeneruje odpověď na otázku z kontextu nejlépe hodnoceného modelu z předchozího porovnání.</p>
+            <button id="generateLLMResponseBtn" onclick="generateLLMResponse()" disabled>Vygenerovat odpověď</button>
+            <span id="generateStatus" class="status-message"></span>
+            <div id="llmResponseOutput" style="margin-top: 10px; background-color: #e9ecef; padding: 15px; border-radius: 5px;">
+                <!-- LLM odpověď se tady zobrazí -->
+            </div>
+        </div>
+
+        <div class="section ab-test-section">
+            <h2>A/B Testování odpovědí</h2>
+            <p>Porovnejte dvě odpovědi vygenerované na základě dvou "blízkých" modelů z leaderboardu a vyberte tu lepší.</p>
+            <input type="text" id="abTestQueryInput" placeholder="Otázka pro A/B test, např. Kde mohu zaplatit komunální odpad?">
+            <button onclick="startABTest()">Spustit A/B Test</button>
+            <span id="abTestStatus" class="status-message"></span>
+
+            <div id="abTestComparison" style="display: none; margin-top: 20px;">
+                <div class="ab-test-column">
+                    <h3 id="abTestResponseAHeader">Odpověď A</h3>
+                    <div id="abTestResponseA" class="llm-response-display"></div>
+                </div>
+                <div class="ab-test-column">
+                    <h3 id="abTestResponseBHeader">Odpověď B</h3>
+                    <div id="abTestResponseB" class="llm-response-display"></div>
+                </div>
+                <div class="ab-test-controls">
+                    <button onclick="submitABTestResult('model_a_winner')">Odpověď A je lepší</button>
+                    <button onclick="submitABTestResult('neutral')">Stejné / Neutrální</button>
+                    <button onclick="submitABTestResult('model_b_winner')">Odpověď B je lepší</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- pro zobrazení markdownu -->
+    <script src="static/app.js"></script>
+</body>
+</html>

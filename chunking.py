@@ -38,6 +38,11 @@ def chunk_by_chars(text, min_chars=MIN_CHARS, max_chars=MAX_CHARS, overlap=OVERL
 
     while start < text_length:
         end = start + max_chars
+
+        if end < text_length:
+            while end < text_length and not text[end].isspace():
+                end += 1
+
         chunk_text = text[start:end].strip()
 
         if len(chunk_text) >= min_chars:
@@ -52,6 +57,10 @@ def chunk_by_chars(text, min_chars=MIN_CHARS, max_chars=MAX_CHARS, overlap=OVERL
             })
 
         start = end - overlap
+
+        if start > 0:
+            while start < text_length and not text[start].isspace():
+                start += 1
 
     return chunks
 
@@ -73,7 +82,6 @@ def process_text():
                     chunk_record = {
                         "doc_id": id,
                         "chunk_id": global_chunk_id,
-                        "url": url,
                         "chars": chunk["chars"],
                         "tokens": chunk["tokens"],
                         "text": chunk["text"]

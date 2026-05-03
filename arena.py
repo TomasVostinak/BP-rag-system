@@ -8,7 +8,7 @@ import os
 import json
 import google.genai as genai
 from collections import Counter
-from embedding import evaluate_model, retrieve_chunks
+from backend.embedding import evaluate_model, retrieve_chunks
 
 RESULTS_FILE = "data/eval-results.jsonl"
 
